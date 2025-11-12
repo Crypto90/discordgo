@@ -178,14 +178,13 @@ func (s *Session) RequestWithBucketID(method, urlStr string, data interface{}, b
 		}
 	}
 
-	return s.RequestRaw(method, urlStr, "application/json", body, bucketID, 0, options...)
+	return s.request(method, urlStr, "application/json", body, bucketID, 0, options...)
 }
 
-// RequestRaw makes a (GET/POST/...) Requests to Discord REST API.
-// Preferably use the other Request* methods but this lets you send JSON directly if that's what you have.
+// request makes a (GET/POST/...) Requests to Discord REST API.
 // Sequence is the sequence number, if it fails with a 502 it will
 // retry with sequence+1 until it either succeeds or sequence >= session.MaxRestRetries
-func (s *Session) RequestRaw(method, urlStr, contentType string, b []byte, bucketID string, sequence int, options ...RequestOption) (response []byte, err error) {
+func (s *Session) request(method, urlStr, contentType string, b []byte, bucketID string, sequence int, options ...RequestOption) (response []byte, err error) {
 	if bucketID == "" {
 		bucketID = strings.SplitN(urlStr, "?", 2)[0]
 	}
@@ -986,6 +985,19 @@ func (s *Session) GuildMemberDeafen(guildID string, userID string, deaf bool, op
 	return
 }
 
+// GuildMemberSuppress server suppress speaker guild member in stage channel
+//  guildID   : The ID of a Guild.
+//  userID    : The ID of a User.
+//  suppress    : boolean value for if user should be no speaker in stage when true
+func (s *Session) GuildMemberSuppress(guildID string, userID string, suppress bool) (err error) {
+	data := struct {
+		Suppress bool `json:"suppress"`
+	}{suppress}
+
+	_, err = s.RequestWithBucketID("PATCH", EndpointVoiceStatesSelf(guildID), data, EndpointGuildMember(guildID, ""))
+	return
+}
+
 // GuildMemberRoleAdd adds the specified role to a given member
 // guildID   : The ID of a Guild.
 // userID    : The ID of a User.
@@ -1013,7 +1025,7 @@ func (s *Session) GuildMemberRoleRemove(guildID, userID, roleID string, options 
 // guildID   : The ID of a Guild.
 func (s *Session) GuildChannels(guildID string, options ...RequestOption) (st []*Channel, err error) {
 
-	body, err := s.RequestRaw("GET", EndpointGuildChannels(guildID), "", nil, EndpointGuildChannels(guildID), 0, options...)
+	body, err := s.request("GET", EndpointGuildChannels(guildID), "", nil, EndpointGuildChannels(guildID), 0, options...)
 	if err != nil {
 		return
 	}
@@ -1104,20 +1116,6 @@ func (s *Session) GuildRoles(guildID string, options ...RequestOption) (st []*Ro
 	err = unmarshal(body, &st)
 
 	return // TODO return pointer
-}
-
-// GuildRole returns a specific role for a given guild.
-// guildID   : The ID of a Guild.
-// roleID    : The ID of a Role.
-func (s *Session) GuildRole(guildID, roleID string, options ...RequestOption) (st *Role, err error) {
-	body, err := s.RequestWithBucketID("GET", EndpointGuildRole(guildID, roleID), nil, EndpointGuildRole(guildID, ""), options...)
-	if err != nil {
-		return
-	}
-
-	err = unmarshal(body, &st)
-
-	return
 }
 
 // GuildRoleCreate creates a new Guild Role and returns it.
@@ -1798,7 +1796,7 @@ func (s *Session) ChannelMessageSendComplex(channelID string, data *MessageSend,
 		if encodeErr != nil {
 			return st, encodeErr
 		}
-		response, err = s.RequestRaw("POST", endpoint, contentType, body, endpoint, 0, options...)
+		response, err = s.request("POST", endpoint, contentType, body, endpoint, 0, options...)
 	} else {
 		response, err = s.RequestWithBucketID("POST", endpoint, data, endpoint, options...)
 	}
@@ -1910,7 +1908,7 @@ func (s *Session) ChannelMessageEditComplex(m *MessageEdit, options ...RequestOp
 		if encodeErr != nil {
 			return st, encodeErr
 		}
-		response, err = s.RequestRaw("PATCH", endpoint, contentType, body, EndpointChannelMessage(m.Channel, ""), 0, options...)
+		response, err = s.request("PATCH", endpoint, contentType, body, EndpointChannelMessage(m.Channel, ""), 0, options...)
 	} else {
 		response, err = s.RequestWithBucketID("PATCH", endpoint, m, EndpointChannelMessage(m.Channel, ""), options...)
 	}
@@ -2447,7 +2445,7 @@ func (s *Session) webhookExecute(webhookID, token string, wait bool, threadID st
 			return st, encodeErr
 		}
 
-		response, err = s.RequestRaw("POST", uri, contentType, body, uri, 0, options...)
+		response, err = s.request("POST", uri, contentType, body, uri, 0, options...)
 	} else {
 		response, err = s.RequestWithBucketID("POST", uri, data, uri, options...)
 	}
@@ -2507,7 +2505,7 @@ func (s *Session) WebhookMessageEdit(webhookID, token, messageID string, data *W
 			return nil, err
 		}
 
-		response, err = s.RequestRaw("PATCH", uri, contentType, body, uri, 0, options...)
+		response, err = s.request("PATCH", uri, contentType, body, uri, 0, options...)
 		if err != nil {
 			return nil, err
 		}
@@ -2727,7 +2725,7 @@ func (s *Session) ForumThreadStartComplex(channelID string, threadData *ThreadSt
 			return th, encodeErr
 		}
 
-		response, err = s.RequestRaw("POST", endpoint, contentType, body, endpoint, 0, options...)
+		response, err = s.request("POST", endpoint, contentType, body, endpoint, 0, options...)
 	} else {
 		response, err = s.RequestWithBucketID("POST", endpoint, data, endpoint, options...)
 	}
@@ -3157,7 +3155,7 @@ func (s *Session) InteractionRespond(interaction *Interaction, resp *Interaction
 			return err
 		}
 
-		_, err = s.RequestRaw("POST", endpoint, contentType, body, endpoint, 0, options...)
+		_, err = s.request("POST", endpoint, contentType, body, endpoint, 0, options...)
 		return err
 	}
 
